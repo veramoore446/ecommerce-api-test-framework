@@ -6,11 +6,13 @@ import pytest
 from common.request_util import RequestUtil
 
 BASE_URL = "http://127.0.0.1:5000"
+CART_USER = "cart_test_user"
+CART_PASS = "secret_sauce"
 
 
 def get_logged_in_api():
     api = RequestUtil(BASE_URL)
-    api.login("standard_user", "secret_sauce")
+    api.login(CART_USER, CART_PASS)
     return api
 
 

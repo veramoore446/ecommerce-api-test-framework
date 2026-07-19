@@ -11,6 +11,14 @@ USERS = {
         "password": "secret_sauce",
         "locked": True,
     },
+    "order_test_user": {
+        "password": "secret_sauce",
+        "locked": False,
+    },
+    "cart_test_user": {
+        "password": "secret_sauce",
+        "locked": False,
+    },
 }
 
 PRODUCTS = [
@@ -25,6 +33,8 @@ PRODUCTS = [
 TOKENS = {}
 
 CARTS = {}
+ORDERS = {}
+ORDER_ID_COUNTER = [1000]
 
 
 def success(data=None):
@@ -200,6 +210,52 @@ def remove_from_cart(product_id):
         "cart": new_cart,
         "total_price": round(total_price, 2),
     })
+
+
+@app.post("/api/orders")
+def create_order():
+    user = get_token_user()
+    if not user:
+        return fail(4001, "unauthorized: token is missing or invalid")
+
+    cart = CARTS.get(user, [])
+    if not cart:
+        return fail(5001, "cart is empty")
+
+    ORDER_ID_COUNTER[0] += 1
+    order_id = ORDER_ID_COUNTER[0]
+    total_price = round(sum(item["price"] * item["quantity"] for item in cart), 2)
+    order = {
+        "order_id": order_id,
+        "username": user,
+        "items": list(cart),
+        "total_price": total_price,
+        "status": "created",
+    }
+    ORDERS.setdefault(user, []).append(order)
+    CARTS[user] = []
+
+    return success(order)
+
+
+@app.get("/api/orders")
+def list_orders():
+    user = get_token_user()
+    if not user:
+        return fail(4001, "unauthorized: token is missing or invalid")
+    orders = ORDERS.get(user, [])
+    return success({"orders": orders, "total": len(orders)})
+
+
+@app.get("/api/orders/<int:order_id>")
+def get_order(order_id):
+    user = get_token_user()
+    if not user:
+        return fail(4001, "unauthorized: token is missing or invalid")
+    order = next((o for o in ORDERS.get(user, []) if o["order_id"] == order_id), None)
+    if order is None:
+        return fail(5002, "order not found")
+    return success(order)
 
 
 if __name__ == "__main__":

@@ -23,3 +23,5 @@ allure-report/
 *.sqlite3
 
 .env
+
+docs/简历与面试.md
