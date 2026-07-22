@@ -1,0 +1,13 @@
+test_accounts:
+  standard:
+    username: "standard_user"
+    password: "secret_sauce"
+  order_test:
+    username: "order_test_user"
+    password: "secret_sauce"
+  cart_test:
+    username: "cart_test_user"
+    password: "secret_sauce"
+  locked:
+    username: "locked_out_user"
+    password: "secret_sauce"

@@ -1,0 +1,27 @@
+normal:
+  - case_name: "correct_credentials"
+    username: "standard_user"
+    password: "secret_sauce"
+    expected_code: 0
+
+error:
+  - case_name: "wrong_password"
+    username: "standard_user"
+    password: "123456"
+    expected_code: 1001
+  - case_name: "empty_username"
+    username: ""
+    password: "secret_sauce"
+    expected_code: 1002
+  - case_name: "empty_password"
+    username: "standard_user"
+    password: ""
+    expected_code: 1003
+  - case_name: "nonexistent_user"
+    username: "nonexistent"
+    password: "secret_sauce"
+    expected_code: 1001
+  - case_name: "locked_user"
+    username: "locked_out_user"
+    password: "secret_sauce"
+    expected_code: 1004

@@ -1,0 +1,14 @@
+add_success:
+  - case_name: "add_product_1"
+    product_id: 1
+    quantity: 2
+
+add_error:
+  - case_name: "nonexistent_product"
+    product_id: 999
+    quantity: 1
+    expected_code: 3001
+  - case_name: "out_of_stock"
+    product_id: 5
+    quantity: 1
+    expected_code: 3003

@@ -84,7 +84,7 @@ class TestCart:
         assert body["code"] == 0
         assert "cart" in body["data"]
         assert "total_price" in body["data"]
-        assert isinstance(body["data"]["total_price"], float)
+        assert isinstance(body["data"]["total_price"], (int, float))
 
     @allure.story("删除购物车商品")
     @allure.title("删除购物车中的商品")

@@ -1,40 +1,24 @@
 from flask import Flask, jsonify, request
+from models import (
+    init_db,
+    get_user,
+    save_token,
+    get_token_user,
+    delete_token,
+    list_products,
+    get_product,
+    get_cart,
+    add_to_cart,
+    remove_from_cart,
+    clear_cart,
+    create_order,
+    add_order_item,
+    get_order,
+    list_orders,
+)
 
 app = Flask(__name__)
-
-USERS = {
-    "standard_user": {
-        "password": "secret_sauce",
-        "locked": False,
-    },
-    "locked_out_user": {
-        "password": "secret_sauce",
-        "locked": True,
-    },
-    "order_test_user": {
-        "password": "secret_sauce",
-        "locked": False,
-    },
-    "cart_test_user": {
-        "password": "secret_sauce",
-        "locked": False,
-    },
-}
-
-PRODUCTS = [
-    {"id": 1, "name": "Sauce Labs Backpack", "price": 29.99, "stock": 10},
-    {"id": 2, "name": "Sauce Labs Bike Light", "price": 9.99, "stock": 5},
-    {"id": 3, "name": "Sauce Labs Bolt T-Shirt", "price": 15.99, "stock": 20},
-    {"id": 4, "name": "Sauce Labs Fleece Jacket", "price": 49.99, "stock": 3},
-    {"id": 5, "name": "Sauce Labs Onesie", "price": 7.99, "stock": 0},
-    {"id": 6, "name": "Test.allTheThings() T-Shirt", "price": 15.99, "stock": 50},
-]
-
-TOKENS = {}
-
-CARTS = {}
-ORDERS = {}
-ORDER_ID_COUNTER = [1000]
+init_db()
 
 
 def success(data=None):
@@ -53,12 +37,12 @@ def fail(code, message):
     }), 200
 
 
-def get_token_user():
+def _get_token_user():
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
         return None
     token = auth[7:]
-    return TOKENS.get(token)
+    return get_token_user(token)
 
 
 @app.get("/api/health")
@@ -66,6 +50,7 @@ def health_check():
     return success({
         "status": "running",
         "service": "ecommerce-api-test-framework",
+        "db": "sqlite",
     })
 
 
@@ -87,14 +72,14 @@ def login():
     if not password:
         return fail(1003, "password is required")
 
-    user = USERS.get(username)
+    user = get_user(username)
     if user is None or user["password"] != password:
         return fail(1001, "username or password error")
     if user["locked"]:
         return fail(1004, "user is locked")
 
     token = f"mock-token-{username}"
-    TOKENS[token] = username
+    save_token(token, username)
     return success({
         "token": token,
         "username": username,
@@ -102,7 +87,7 @@ def login():
 
 
 @app.get("/api/products")
-def list_products():
+def list_products_api():
     page = request.args.get("page", 1, type=int)
     size = request.args.get("size", 10, type=int)
     keyword = request.args.get("keyword", "", type=str)
@@ -112,7 +97,7 @@ def list_products():
     if size < 1 or size > 100:
         return fail(2002, "size must be between 1 and 100")
 
-    filtered = PRODUCTS
+    filtered = list_products()
     if keyword:
         filtered = [p for p in filtered if keyword.lower() in p["name"].lower()]
 
@@ -129,16 +114,16 @@ def list_products():
 
 
 @app.get("/api/products/<int:product_id>")
-def get_product(product_id):
-    product = next((p for p in PRODUCTS if p["id"] == product_id), None)
+def get_product_api(product_id):
+    product = get_product(product_id)
     if product is None:
         return fail(3001, "product not found")
     return success(product)
 
 
 @app.post("/api/cart")
-def add_to_cart():
-    user = get_token_user()
+def add_to_cart_api():
+    user = _get_token_user()
     if not user:
         return fail(4001, "unauthorized: token is missing or invalid")
 
@@ -155,7 +140,7 @@ def add_to_cart():
     if product_id is None:
         return fail(3002, "product_id is required")
 
-    product = next((p for p in PRODUCTS if p["id"] == product_id), None)
+    product = get_product(product_id)
     if product is None:
         return fail(3001, "product not found")
 
@@ -165,94 +150,88 @@ def add_to_cart():
     if quantity < 1:
         return fail(3004, "quantity must be >= 1")
 
-    cart = CARTS.setdefault(user, [])
-    existing = next((item for item in cart if item["product_id"] == product_id), None)
-    if existing:
-        existing["quantity"] += quantity
-    else:
-        cart.append({
-            "product_id": product_id,
-            "name": product["name"],
-            "price": product["price"],
-            "quantity": quantity,
-        })
-
-    return success({"cart": cart})
+    add_to_cart(user, product_id, product["name"], product["price"], quantity)
+    return success({"cart": get_cart(user)})
 
 
 @app.get("/api/cart")
-def get_cart():
-    user = get_token_user()
+def get_cart_api():
+    user = _get_token_user()
     if not user:
         return fail(4001, "unauthorized: token is missing or invalid")
-    cart = CARTS.get(user, [])
-    total_price = sum(item["price"] * item["quantity"] for item in cart)
+    cart = get_cart(user)
+    total_price = round(sum(item["price"] * item["quantity"] for item in cart), 2)
     return success({
         "cart": cart,
-        "total_price": round(total_price, 2),
+        "total_price": total_price,
     })
 
 
 @app.delete("/api/cart/<int:product_id>")
-def remove_from_cart(product_id):
-    user = get_token_user()
+def remove_from_cart_api(product_id):
+    user = _get_token_user()
     if not user:
         return fail(4001, "unauthorized: token is missing or invalid")
 
-    cart = CARTS.get(user, [])
-    new_cart = [item for item in cart if item["product_id"] != product_id]
-    if len(new_cart) == len(cart):
+    if not remove_from_cart(user, product_id):
         return fail(3005, "product not in cart")
 
-    CARTS[user] = new_cart
-    total_price = sum(item["price"] * item["quantity"] for item in new_cart)
+    cart = get_cart(user)
+    total_price = round(sum(item["price"] * item["quantity"] for item in cart), 2)
     return success({
-        "cart": new_cart,
-        "total_price": round(total_price, 2),
+        "cart": cart,
+        "total_price": total_price,
     })
 
 
 @app.post("/api/orders")
-def create_order():
-    user = get_token_user()
+def create_order_api():
+    user = _get_token_user()
     if not user:
         return fail(4001, "unauthorized: token is missing or invalid")
 
-    cart = CARTS.get(user, [])
+    cart = get_cart(user)
     if not cart:
         return fail(5001, "cart is empty")
 
-    ORDER_ID_COUNTER[0] += 1
-    order_id = ORDER_ID_COUNTER[0]
     total_price = round(sum(item["price"] * item["quantity"] for item in cart), 2)
-    order = {
+    order_id = create_order(user, total_price)
+
+    for item in cart:
+        add_order_item(
+            order_id,
+            item["product_id"],
+            item["name"],
+            item["price"],
+            item["quantity"],
+        )
+
+    clear_cart(user)
+
+    return success({
         "order_id": order_id,
         "username": user,
-        "items": list(cart),
+        "items": cart,
         "total_price": total_price,
         "status": "created",
-    }
-    ORDERS.setdefault(user, []).append(order)
-    CARTS[user] = []
-
-    return success(order)
+    })
 
 
 @app.get("/api/orders")
-def list_orders():
-    user = get_token_user()
+def list_orders_api():
+    user = _get_token_user()
     if not user:
         return fail(4001, "unauthorized: token is missing or invalid")
-    orders = ORDERS.get(user, [])
+    orders = list_orders(user)
     return success({"orders": orders, "total": len(orders)})
 
 
 @app.get("/api/orders/<int:order_id>")
-def get_order(order_id):
-    user = get_token_user()
+def get_order_api(order_id):
+    user = _get_token_user()
     if not user:
         return fail(4001, "unauthorized: token is missing or invalid")
-    order = next((o for o in ORDERS.get(user, []) if o["order_id"] == order_id), None)
+    order = get_order(order_id, user)
     if order is None:
         return fail(5002, "order not found")
     return success(order)
