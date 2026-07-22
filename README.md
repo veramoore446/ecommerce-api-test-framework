@@ -1,7 +1,7 @@
 # 电商接口自动化测试框架
 
 <p align="center">
-  <strong>Flask + SQLite + Pytest + Requests + Allure</strong>
+  <strong>Flask + SQLite + Pytest + Requests + Allure + Locust</strong>
 </p>
 
 <p align="center">
@@ -14,15 +14,17 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Tests-26%20Passed-brightgreen.svg" alt="Tests" />
+  <img src="https://img.shields.io/badge/Tests-121%20Passed-brightgreen.svg" alt="Tests" />
   <img src="https://img.shields.io/badge/APIs-10%20Endpoints-yellow.svg" alt="APIs" />
   <img src="https://img.shields.io/badge/Data%20Driven-YAML-informational.svg" alt="YAML" />
   <img src="https://img.shields.io/badge/DB-SQLite-blue.svg" alt="Database" />
+  <img src="https://img.shields.io/badge/Performance-Locust-green.svg" alt="Performance" />
+  <img src="https://img.shields.io/badge/Security-SAST%20Tests-orange.svg" alt="Security" />
 </p>
 
 ---
 
-一个完整的电商系统接口自动化测试框架，采用契约驱动开发模式，覆盖登录、商品、购物车、订单四大核心业务模块。项目经历了从内存字典 Demo 到工程级框架的三次迭代升级，展示了从简单实现到专业实践的完整演进过程。
+一个完整的多类型电商测试框架，覆盖 **API 测试、数据库测试、单元测试、安全测试、性能测试** 五大测试类型。项目经历了从内存字典 Demo 到工程级框架的三次迭代升级，展示了从简单实现到专业实践的完整演进过程。
 
 ---
 
@@ -45,6 +47,17 @@
                │    Allure    │
                │  测试报告生成  │
                └──────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                      多类型测试覆盖                              │
+├──────────┬──────────┬──────────┬──────────┬──────────────────┤
+│ API 测试  │ 数据库测试│ 单元测试  │ 安全测试  │   性能测试        │
+│ 26 条用例 │ 42 条用例 │ 29 条用例 │ 22 条用例 │ Locust 负载压测  │
+│Requests   │SQLite直接│ Flask Mock│ SQL注入   │ 4 种用户行为     │
+│接口契约验证│ CRUD 验证 │ 路由逻辑   │ XSS 防护  │ 并发 & 响应时间  │
+│参数校验    │ 数据完整性│ 业务逻辑   │ 鉴权安全  │ 吞吐量指标       │
+│鉴权拦截    │ 边界条件  │ 错误处理   │ HTTP方法  │                  │
+└──────────┴──────────┴──────────┴──────────┴──────────────────┘
 ```
 
 ### 技术选型
@@ -54,6 +67,10 @@
 | **被测系统** | Flask + SQLite | 轻量级 Web 框架，SQLite 零配置数据库，适合 Demo 场景 |
 | **接口管理** | Apifox | 接口契约设计 + 调试 + 文档一体化 |
 | **自动化测试** | Pytest + Requests | Pytest 插件生态丰富，Requests 封装简洁 |
+| **单元测试** | Pytest + unittest.mock | Flask 路由逻辑隔离测试，Mock 避免外部依赖 |
+| **数据库测试** | Pytest + SQLite | 直接操作数据库，验证数据持久化和完整性 |
+| **安全测试** | Pytest + 手工注入 | SQL 注入、XSS、鉴权绕过等安全漏洞检测 |
+| **性能测试** | Locust | 开源分布式负载测试框架，支持自定义用户行为 |
 | **数据驱动** | YAML | 测试数据与代码分离，易于维护和扩展 |
 | **测试报告** | Allure | 可视化报告，支持按模块/场景分层展示 |
 | **日志系统** | Python logging | 按日期分割文件，支持多级别输出 |
@@ -88,7 +105,14 @@ ecommerce-api-test-framework/
 │   ├── test_login.py             # 登录模块（6 条，YAML 参数化）
 │   ├── test_product.py           # 商品模块（5 条）
 │   ├── test_cart.py              # 购物车模块（8 条）
-│   └── test_order.py             # 订单模块（7 条）
+│   ├── test_order.py             # 订单模块（7 条）
+│   ├── test_database.py          # 数据库 CRUD 测试（42 条）
+│   ├── test_security.py          # 安全测试 - SQL注入、XSS、鉴权、输入校验、HTTP方法（22 条）
+│   └── test_unit.py              # Flask 路由单元测试 + Mock（29 条）
+│
+├── performance/                  # 性能测试层
+│   ├── locustfile.py             # Locust 性能测试（4 种用户行为：浏览、搜索、登录、下单）
+│   └── README.md                 # 性能测试文档
 │
 ├── .github/workflows/
 │   └── ci.yml                    # GitHub Actions CI/CD 配置
@@ -142,10 +166,21 @@ allure generate allure-results -o allure-report --clean
 pytest tests/test_login.py -v
 ```
 
+### 运行性能测试
+
+```bash
+# 启动 Locust Web UI（可视化模式）
+locust -f performance/locustfile.py --host http://127.0.0.1:5000
+
+# 无头模式（直接运行）
+locust -f performance/locustfile.py --headless -u 100 -r 10 -t 30s --host http://127.0.0.1:5000
+```
+
 ### 查看报告
 
 - **Allure 报告**：浏览器打开 `allure-report/index.html`
 - **覆盖率报告**：终端直接输出，或生成 `coverage.xml`
+- **性能报告**：Locust Web UI（默认 http://localhost:8089）
 
 ---
 
@@ -190,6 +225,19 @@ pytest tests/test_login.py -v
 
 ## 测试设计
 
+### 测试类型概览
+
+| 测试类型 | 测试文件 | 用例数 | 测试对象 | 测试方法 |
+|---|---|---|---|---|
+| **API 接口测试** | test_login/test_product/test_cart/test_order | 26 | RESTful API 端到端 | Requests + YAML 数据驱动 |
+| **数据库测试** | test_database.py | 42 | SQLite CRUD 操作 | 直接操作数据库验证 |
+| **单元测试** | test_unit.py | 29 | Flask 路由逻辑 | unittest.mock 隔离 |
+| **安全测试** | test_security.py | 22 | SQL注入/XSS/鉴权/输入校验 | 手工注入 + 断言拦截 |
+| **性能测试** | locustfile.py | - | 系统吞吐量 & 响应时间 | Locust 负载压测 |
+
+**自动化测试总计：121 条用例，全部通过。**
+**性能测试：独立运行，通过 Locust 负载模型模拟真实用户行为。**
+
 ### 用例覆盖维度
 
 | 维度 | 覆盖内容 | 用例数 |
@@ -198,8 +246,13 @@ pytest tests/test_login.py -v
 | **异常流程** | 参数缺失、数据不存在、库存不足、格式错误等 | 9 条 |
 | **鉴权拦截** | 无 Token、错误 Token 访问受保护接口 | 6 条 |
 | **参数化** | YAML 数据驱动，一套代码覆盖多组输入 | 3 条 |
-
-**总计：26 条测试用例，全部通过。**
+| **数据库 CRUD** | 用户/商品/购物车/订单的数据创建、读取、更新、删除 | 42 条 |
+| **路由单元测试** | Flask 路由逻辑隔离测试（Mock 数据库），验证错误处理与业务规则 | 29 条 |
+| **SQL 注入防护** | 登录/搜索/路径参数注入攻击检测 | 6 条 |
+| **XSS 防护** | 输入字段中的脚本注入检测 | 4 条 |
+| **鉴权安全** | Token 伪造、过期、篡改等安全场景 | 4 条 |
+| **输入校验** | 边界值、特殊字符、超长输入等 | 4 条 |
+| **HTTP 方法** | 不允许的 HTTP 方法访问（如 PUT/DELETE 鉴权接口） | 4 条 |
 
 ### 测试隔离策略
 
@@ -239,18 +292,32 @@ error:
 
 新增测试场景只需在 YAML 中添加一组数据，无需修改 Python 代码。
 
+### 性能测试设计
+
+使用 Locust 框架定义 4 种用户行为，模拟真实用户访问模式：
+
+| 用户行为 | 权重 | 操作描述 |
+|---|---|---|
+| **浏览商品** | 3 | 查看商品列表 → 查看商品详情 |
+| **搜索商品** | 1 | 按关键词搜索商品 |
+| **用户登录** | 1 | 登录获取 Token |
+| **下单流程** | 1 | 登录 → 加入购物车 → 创建订单 |
+
 ---
 
 ## 项目演进
 
-### V1.0 → V2.0 升级记录
+### V1.0 → V2.0 → V3.0 升级记录
 
-| 版本 | 数据存储 | 测试数据 | 测试隔离 | CI/CD |
-|---|---|---|---|---|
-| V1.0 | 内存字典 | 硬编码 | 独立用户 | 无 |
-| V2.0 | SQLite 数据库 | YAML 数据驱动 | conftest.py 自动清理 | GitHub Actions |
+| 版本 | 数据存储 | 测试数据 | 测试隔离 | CI/CD | 测试类型 |
+|---|---|---|---|---|---|
+| V1.0 | 内存字典 | 硬编码 | 独立用户 | 无 | API 测试 |
+| V2.0 | SQLite 数据库 | YAML 数据驱动 | conftest.py 自动清理 | GitHub Actions | API 测试 |
+| V3.0 | SQLite 数据库 | YAML 数据驱动 | conftest.py 自动清理 | GitHub Actions | API + 数据库 + 单元 + 安全 + 性能 |
 
 ### 关键升级点
+
+**V1.0 → V2.0**
 
 **SQLite 数据持久化**
 - 解决了内存字典重启数据丢失的问题
@@ -271,6 +338,20 @@ error:
 - push 到 main 分支自动触发完整测试流水线
 - 自动安装依赖 → 启动服务 → 运行测试 → 生成覆盖率报告
 - 上传覆盖率报告为 artifact，方便团队查看
+
+**V2.0 → V3.0**
+
+**多类型测试扩展**
+- 从单一的 API 接口测试扩展为 5 大测试类型
+- 新增数据库测试（42 条）：直接验证 SQLite CRUD 数据正确性
+- 新增单元测试（29 条）：使用 Mock 隔离 Flask 路由逻辑
+- 新增安全测试（22 条）：覆盖 SQL 注入、XSS、鉴权安全、输入校验、HTTP 方法
+- 新增性能测试（Locust）：4 种用户行为的负载压测
+
+**测试覆盖率大幅提升**
+- 自动化测试用例从 26 条增至 121 条
+- 覆盖维度从 4 个扩展至 11 个
+- 测试层级从接口层扩展到数据库层、路由逻辑层、安全防护层
 
 ---
 
@@ -294,3 +375,7 @@ api.post("/api/orders")                      # 自动携带 Authorization Header
 ### data_loader.py（数据加载）
 
 从 YAML 文件加载测试数据，支持按分类（normal/error）筛选，供 Pytest 参数化使用。
+
+### Locust（性能测试）
+
+基于 Locust 框架的负载测试，支持 Web UI 可视化模式和无头模式运行，通过权重分配模拟真实用户行为比例。
